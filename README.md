@@ -27,8 +27,6 @@ RUSTONE/ <br>
 │   ├── test/ <br>
 │   └── models/ <br>
 │ <br>
-├── notebooks/ <br>
-│ <br>
 ├── package.json <br>
 ├── README.md <br>
 ├── requirements.txt <br>
