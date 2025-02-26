@@ -1,0 +1,11 @@
+anomalib==0.7.0
+torch
+torchvision
+pytorch-lightning
+numpy
+scipy
+matplotlib
+omegaconf
+einops
+kornia
+opencv-python-headless
