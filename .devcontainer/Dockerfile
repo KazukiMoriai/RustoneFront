@@ -1,12 +1,22 @@
 FROM node:16
 
-# Python のインストール
+# Python とFFmpegのインストール
 RUN apt-get update && apt-get install -y \
     python3 \
     python3-pip \
     python3-venv \
     git \
-    curl
+    curl \
+    ffmpeg \
+    libavcodec-dev \
+    libavformat-dev \
+    libavdevice-dev \
+    libavutil-dev \
+    libavfilter-dev \
+    libswscale-dev \
+    libswresample-dev \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
 
 # Solidity 開発ツールのインストール
 RUN npm install -g truffle ganache-cli solc
