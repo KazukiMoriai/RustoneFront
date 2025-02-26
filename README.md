@@ -1,5 +1,4 @@
-## Project Name
-### RustOne <br>
+## RustOne <br>
 IoTとブロックチェーンを活用した自動車用鋼板品質不具合クレーム管理システム
 
 ## 事業企画
