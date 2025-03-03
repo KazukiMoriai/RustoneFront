@@ -37,5 +37,6 @@ jobs:
             --exclude '.gitignore' \
             ./ $SAKURA_USER@$SAKURA_HOST:$SSH_DIR
 
+
           # リモートコマンドを実行
           ssh $SAKURA_USER@$SAKURA_HOST "cd $SSH_DIR && npm install --production"
