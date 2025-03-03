@@ -33,6 +33,3 @@ RUN npm install -g create-react-app typescript
 
 # ユーザー設定
 USER node
-
-# anomalibのインストール
-RUN pip install -r requirements.txt
