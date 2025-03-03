@@ -21,7 +21,7 @@ jobs:
       - name: Setup known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.SAKURA_HOST }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
       
       - name: Deploy to Sakura Server
         env:
