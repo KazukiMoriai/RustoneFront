@@ -1,0 +1,42 @@
+name: Deploy to Sakura Server
+
+on:
+  push:
+    branches: [ main ]  # メインブランチにプッシュされた時に実行
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0  # 全履歴をフェッチ
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.8.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+      
+      - name: Setup known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.SSH_HOST }} >> ~/.ssh/known_hosts
+      
+      - name: Deploy to Sakura Server
+        env:
+          SSH_DIR: ${{ secrets.SSH_DIR }}
+          SAKURA_HOST: ${{ secrets.SSH_HOST }}
+          SAKURA_USER: ${{ secrets.SSH_USER }}
+        run: |
+          # rsyncを使ってデプロイ
+          rsync -avz --delete \
+            --exclude '.git/' \
+            --exclude '.github/' \
+            --exclude 'node_modules/' \
+            --exclude '.gitignore' \
+            ./ $SAKURA_USER@$SAKURA_HOST:$SSH_DIR
+
+
+          # リモートコマンドを実行
+          ssh $SAKURA_USER@$SAKURA_HOST "cd $SSH_DIR && npm install --production"
