@@ -12,6 +12,34 @@ export interface PhotoMetadata {
 }
 
 export const photoService = {
+  savePhotoLocally(photoData: string): void {
+    try {
+      // Base64データからBlobを作成
+      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, '');
+      const blob = new Blob([Buffer.from(base64Data, 'base64')], { type: 'image/jpeg' });
+      
+      // ダウンロードリンクを作成
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      
+      // タイムスタンプを含むファイル名を生成
+      const fileName = `photo_${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`;
+      link.download = fileName;
+      
+      // リンクをクリックしてダウンロードを開始
+      document.body.appendChild(link);
+      link.click();
+      
+      // クリーンアップ
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error saving photo locally:', error);
+      throw error;
+    }
+  },
+
   async savePhoto(photoData: string): Promise<PhotoMetadata> {
     try {
       // Base64データからBlobを作成

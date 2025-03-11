@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { photoService, PhotoMetadata } from '../services/photoService';
+import { photoService } from '../services/photoService';
 
 interface UsePhotoCaptureReturn {
   imgSrc: string | null;
@@ -32,7 +32,7 @@ export const usePhotoCapture = (): UsePhotoCaptureReturn => {
     setError(null);
 
     try {
-      await photoService.savePhoto(imgSrc);
+      photoService.savePhotoLocally(imgSrc);
       setImgSrc(null);
     } catch (err) {
       setError('写真の保存中にエラーが発生しました。もう一度お試しください。');
