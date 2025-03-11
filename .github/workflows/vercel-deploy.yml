@@ -19,19 +19,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          # キャッシュを完全に無効化
-          # cache: 'npm'
-          # cache-dependency-path: 'frontEnd/package-lock.json'
+          # キャッシュは不要なので削除
 
       - name: Install dependencies
-        run: |
-          cd frontEnd
-          npm install
+        run: npm install
 
       - name: Build project
-        run: |
-          cd frontEnd
-          npm run build
+        run: npm run build
 
       - name: Deploy to Vercel
         uses: amondnet/vercel-action@v25
@@ -39,5 +33,5 @@ jobs:
           vercel-token: ${{ secrets.VERCEL_TOKEN }}
           vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
           vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
-          working-directory: ./frontEnd
+          # frontEndフォルダの指定を削除
           vercel-args: '--prod'
