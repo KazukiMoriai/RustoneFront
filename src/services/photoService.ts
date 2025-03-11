@@ -1,5 +1,7 @@
 import axios from 'axios';
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
 // 将来的なサーバー連携のためのインターフェースは残しておく
 export interface PhotoMetadata {
   id: number;
@@ -8,6 +10,8 @@ export interface PhotoMetadata {
   size: number;
   created_at: string;
   updated_at: string;
+  description?: string;
+  category?: string;
 }
 
 export const photoService = {
@@ -56,6 +60,56 @@ export const photoService = {
       return fileName; // 成功時にファイル名を返す
     } catch (error) {
       console.error('Error saving photo locally:', error);
+      throw error;
+    }
+  },
+
+  async uploadPhoto(photoData: string, metadata?: { description?: string; category?: string }): Promise<PhotoMetadata> {
+    try {
+      // Base64データからBlobを作成
+      const base64Data = photoData.split(',')[1];
+      const blob = await fetch(photoData).then(res => res.blob());
+      
+      // FormDataの作成
+      const formData = new FormData();
+      formData.append('image', blob, `photo_${Date.now()}.jpg`);
+      
+      // メタデータがあれば追加
+      if (metadata?.description) {
+        formData.append('description', metadata.description);
+      }
+      if (metadata?.category) {
+        formData.append('category', metadata.category);
+      }
+      
+      const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      throw error;
+    }
+  },
+
+  async getPhotos(): Promise<PhotoMetadata[]> {
+    try {
+      const response = await axios.get(`${API_BASE_URL}/photos`);
+      return response.data;
+    } catch (error) {
+      console.error('Error fetching photos:', error);
+      throw error;
+    }
+  },
+
+  async deletePhoto(id: number): Promise<void> {
+    try {
+      await axios.delete(`${API_BASE_URL}/photos/${id}`);
+    } catch (error) {
+      console.error('Error deleting photo:', error);
       throw error;
     }
   }

@@ -32,11 +32,11 @@ export const usePhotoCapture = (): UsePhotoCaptureReturn => {
     setError(null);
 
     try {
-      await Promise.resolve(photoService.savePhotoLocally(imgSrc));
+      await photoService.uploadPhoto(imgSrc);
       setImgSrc(null);
     } catch (err) {
-      setError('写真の保存中にエラーが発生しました。もう一度お試しください。');
-      console.error('Error saving photo:', err);
+      setError('写真のアップロード中にエラーが発生しました。もう一度お試しください。');
+      console.error('Error uploading photo:', err);
     } finally {
       setIsSaving(false);
     }
