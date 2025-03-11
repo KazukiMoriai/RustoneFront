@@ -1,7 +1,6 @@
 import axios from 'axios';
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api';
-
+// 将来的なサーバー連携のためのインターフェースは残しておく
 export interface PhotoMetadata {
   id: number;
   filename: string;
@@ -12,13 +11,32 @@ export interface PhotoMetadata {
 }
 
 export const photoService = {
-  savePhotoLocally(photoData: string): void {
+  async savePhotoLocally(photoData: string): Promise<string> {
     try {
-      // Base64データからBlobを作成
-      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, '');
-      const blob = new Blob([Buffer.from(base64Data, 'base64')], { type: 'image/jpeg' });
+      // Base64文字列からデータURLであることを確認
+      const isDataUrl = photoData.startsWith('data:');
       
-      // ダウンロードリンクを作成
+      // Blobに変換
+      let blob;
+      if (isDataUrl) {
+        // data:image/jpeg;base64,... 形式の場合、直接Blobに変換
+        const byteString = atob(photoData.split(',')[1]);
+        const mimeType = photoData.split(',')[0].split(':')[1].split(';')[0];
+        const arrayBuffer = new ArrayBuffer(byteString.length);
+        const uint8Array = new Uint8Array(arrayBuffer);
+        
+        for (let i = 0; i < byteString.length; i++) {
+          uint8Array[i] = byteString.charCodeAt(i);
+        }
+        
+        blob = new Blob([arrayBuffer], { type: mimeType });
+      } else {
+        // 既にURLの場合は、そのURLからBlobを取得
+        const response = await fetch(photoData);
+        blob = await response.blob();
+      }
+      
+      // Blobからダウンロードリンクを作成
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
@@ -34,51 +52,11 @@ export const photoService = {
       // クリーンアップ
       document.body.removeChild(link);
       window.URL.revokeObjectURL(url);
+      
+      return fileName; // 成功時にファイル名を返す
     } catch (error) {
       console.error('Error saving photo locally:', error);
       throw error;
     }
-  },
-
-  async savePhoto(photoData: string): Promise<PhotoMetadata> {
-    try {
-      // Base64データからBlobを作成
-      const base64Data = photoData.replace(/^data:image\/\w+;base64,/, '');
-      const blob = await fetch(photoData).then(res => res.blob());
-      
-      // FormDataの作成
-      const formData = new FormData();
-      formData.append('photo', blob, `photo_${Date.now()}.jpg`);
-      
-      const response = await axios.post(`${API_BASE_URL}/photos`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-        },
-      });
-      
-      return response.data;
-    } catch (error) {
-      console.error('Error saving photo:', error);
-      throw error;
-    }
-  },
-
-  async getPhotos(): Promise<PhotoMetadata[]> {
-    try {
-      const response = await axios.get(`${API_BASE_URL}/photos`);
-      return response.data;
-    } catch (error) {
-      console.error('Error fetching photos:', error);
-      throw error;
-    }
-  },
-
-  async deletePhoto(id: number): Promise<void> {
-    try {
-      await axios.delete(`${API_BASE_URL}/photos/${id}`);
-    } catch (error) {
-      console.error('Error deleting photo:', error);
-      throw error;
-    }
   }
-}; 
+};
