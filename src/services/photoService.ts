@@ -1,17 +1,16 @@
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+const API_BASE_URL = 'https://moriai.sakura.ne.jp/api';
 
 // 将来的なサーバー連携のためのインターフェースは残しておく
 export interface PhotoMetadata {
   id: number;
-  filename: string;
-  filepath: string;
-  size: number;
+  file_name: string;
+  file_path: string;
+  mime_type: string;
+  file_size: number;
   created_at: string;
   updated_at: string;
-  description?: string;
-  category?: string;
 }
 
 export const photoService = {
@@ -64,23 +63,21 @@ export const photoService = {
     }
   },
 
-  async uploadPhoto(photoData: string, metadata?: { description?: string; category?: string }): Promise<PhotoMetadata> {
+  async uploadPhoto(photoData: string): Promise<PhotoMetadata> {
     try {
       // Base64データからBlobを作成
       const base64Data = photoData.split(',')[1];
+      const mimeType = photoData.split(',')[0].split(':')[1].split(';')[0];
       const blob = await fetch(photoData).then(res => res.blob());
+      
+      // ファイル名を生成
+      const fileName = `photo_${Date.now()}.${mimeType.split('/')[1]}`;
       
       // FormDataの作成
       const formData = new FormData();
-      formData.append('image', blob, `photo_${Date.now()}.jpg`);
-      
-      // メタデータがあれば追加
-      if (metadata?.description) {
-        formData.append('description', metadata.description);
-      }
-      if (metadata?.category) {
-        formData.append('category', metadata.category);
-      }
+      formData.append('image', blob, fileName);
+      formData.append('mime_type', mimeType);
+      formData.append('file_size', blob.size.toString());
       
       const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
         headers: {
