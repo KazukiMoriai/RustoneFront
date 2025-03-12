@@ -25,8 +25,8 @@ const Camera: React.FC = () => {
 
   const videoConstraints = {
     width: 720,
-    height: 1280,
-    facingMode: { exact: "environment" }
+    height: 720,
+    facingMode: "user"
   };
 
   return (
