@@ -1,13 +1,20 @@
 import { useState, useCallback } from 'react';
 import { photoService } from '../services/photoService';
 
+interface SignatureData {
+  signature: string;
+  imageHash: string;
+  challenge: string;
+  timestamp: number;
+}
+
 interface UsePhotoCaptureReturn {
   imgSrc: string | null;
   isSaving: boolean;
   error: string | null;
   capture: (imageSrc: string) => void;
   retake: () => void;
-  savePhoto: () => Promise<void>;
+  savePhoto: (signatureData?: SignatureData) => Promise<void>;
 }
 
 export const usePhotoCapture = (): UsePhotoCaptureReturn => {
@@ -25,14 +32,14 @@ export const usePhotoCapture = (): UsePhotoCaptureReturn => {
     setError(null);
   }, []);
 
-  const savePhoto = async () => {
+  const savePhoto = async (signatureData?: SignatureData) => {
     if (!imgSrc) return;
 
     setIsSaving(true);
     setError(null);
 
     try {
-      await photoService.uploadPhoto(imgSrc);
+      await photoService.uploadPhoto(imgSrc, signatureData);
       setImgSrc(null);
     } catch (err) {
       if (err instanceof Error) {

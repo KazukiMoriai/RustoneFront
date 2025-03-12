@@ -11,6 +11,13 @@ export interface PhotoMetadata {
   updated_at: string;
 }
 
+export interface SignatureData {
+  signature: string;
+  imageHash: string;
+  challenge: string;
+  timestamp: number;
+}
+
 export const photoService = {
   async savePhotoLocally(photoData: string): Promise<string> {
     try {
@@ -61,7 +68,7 @@ export const photoService = {
     }
   },
 
-  async uploadPhoto(photoData: string): Promise<PhotoMetadata> {
+  async uploadPhoto(photoData: string, signatureData?: SignatureData): Promise<PhotoMetadata> {
     try {
       // Base64データからBlobを作成
       const base64Data = photoData.split(',')[1];
@@ -90,14 +97,22 @@ export const photoService = {
       
       // FormDataの作成
       const formData = new FormData();
-      formData.append('photo', blob, fileName); // サーバー側のコントローラに合わせて 'photo' を使用
+      formData.append('photo', blob, fileName);
+
+      // 署名データがある場合は追加
+      if (signatureData) {
+        formData.append('signature', signatureData.signature);
+        formData.append('imageHash', signatureData.imageHash);
+        formData.append('challenge', signatureData.challenge);
+        formData.append('timestamp', signatureData.timestamp.toString());
+      }
 
       // デバッグ用 - どのURLにリクエストしているかをログ出力
       console.log('Requesting to URL:', `${API_BASE_URL}/photos`);
 
       // タイムアウト付きのfetch
       const controller = new AbortController();
-      const timeout = setTimeout(() => controller.abort(), 30000); // 30秒でタイムアウト
+      const timeout = setTimeout(() => controller.abort(), 30000);
 
       try {
         // 複数のエンドポイントパターンを試す
