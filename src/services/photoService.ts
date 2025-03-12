@@ -11,13 +11,13 @@ export interface PhotoMetadata {
   updated_at: string;
 }
 
-// 署名データのインターフェース（wallet_addressを必須に変更）
+// 署名データのインターフェース
 export interface SignatureData {
   signature: string;
-  imageHash: string;  // サーバー側では image_hash となるが、FormDataに変換時に調整
+  imageHash: string;  // サーバー側では image_hash となる
   challenge: string;
   timestamp: number;
-  wallet_address: string;  // オプションから必須に変更
+  wallet_address: string;  // 必須フィールド
 }
 
 export const photoService = {
@@ -101,18 +101,26 @@ export const photoService = {
       const formData = new FormData();
       formData.append('photo', blob, fileName);
 
-      // 署名データがある場合は追加（wallet_addressは必ず含める）
+      // 署名データがある場合は追加
       if (signatureData) {
+        // 署名関連の必須フィールドを確認
+        if (!signatureData.signature) {
+          throw new Error('署名データが必要です');
+        }
+        
+        if (!signatureData.imageHash) {
+          throw new Error('画像ハッシュが必要です');
+        }
+        
+        if (!signatureData.wallet_address) {
+          throw new Error('ウォレットアドレスが必要です');
+        }
+        
         formData.append('signature', signatureData.signature);
         formData.append('imageHash', signatureData.imageHash);
         formData.append('challenge', signatureData.challenge);
         formData.append('timestamp', signatureData.timestamp.toString());
         formData.append('wallet_address', signatureData.wallet_address);
-        
-        // ウォレットアドレスが空文字列でないことを確認
-        if (!signatureData.wallet_address.trim()) {
-          throw new Error('有効なウォレットアドレスが必要です');
-        }
       }
 
       // リクエストのURLとデータをログ出力
