@@ -68,78 +68,118 @@ export const photoService = {
       // Base64データからBlobを作成
       const base64Data = photoData.split(',')[1];
       const mimeType = photoData.split(',')[0].split(':')[1].split(';')[0];
+      
+      // Base64データのバリデーション
+      if (!base64Data || !mimeType) {
+        throw new Error('無効な画像データです');
+      }
+
+      // 画像タイプの確認
+      if (!mimeType.startsWith('image/')) {
+        throw new Error('アップロードできるのは画像ファイルのみです');
+      }
+
       const blob = await fetch(photoData).then(res => res.blob());
+      
+      // ファイルサイズチェック（10MB制限）
+      const maxSize = 10 * 1024 * 1024; // 10MB
+      if (blob.size > maxSize) {
+        throw new Error('画像サイズが大きすぎます（上限：10MB）');
+      }
       
       // ファイル名を生成
       const fileName = `photo_${Date.now()}.${mimeType.split('/')[1]}`;
       
       // FormDataの作成
       const formData = new FormData();
-      formData.append('image', blob, fileName);
-      formData.append('mime_type', mimeType);
-      formData.append('file_size', blob.size.toString());
-      
-      const response = await axios.post(`${API_BASE_URL}/photos`, formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data',
-          'Accept': 'application/json',
-        },
-        timeout: 10000,
-        withCredentials: true,
-        validateStatus: function (status) {
-          return status >= 200 && status < 500;
-        }
-      });
-      
-      if (!response.data) {
-        throw new Error('サーバーからの応答が空です');
-      }
-      
-      return response.data;
-    } catch (error) {
-      if (axios.isAxiosError(error)) {
-        console.error('Axios Error Details:', {
-          status: error.response?.status,
-          statusText: error.response?.statusText,
-          data: error.response?.data,
-          headers: error.response?.headers,
-          config: error.config
+      formData.append('photo', blob, fileName);
+
+      // タイムアウト付きのfetch
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 30000); // 30秒でタイムアウト
+
+      try {
+        const response = await fetch(`${API_BASE_URL}/photos`, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Accept': 'application/json',
+          },
+          body: formData,
+          signal: controller.signal
         });
 
-        if (error.code === 'ECONNABORTED') {
-          throw new Error('接続がタイムアウトしました。ネットワーク状態を確認してください。');
-        }
-        if (error.response) {
-          // サーバーからのエラーレスポンス
-          const status = error.response.status;
-          const errorData = error.response.data;
+        clearTimeout(timeout); // タイムアウトをクリア
+
+        if (!response.ok) {
+          let errorMessage = 'アップロードに失敗しました';
           
-          console.error('Server Error Response:', errorData);
-          
-          switch (status) {
-            case 400:
-              throw new Error(`無効なリクエストです：${errorData?.message || '画像データを確認してください。'}`);
-            case 401:
-              throw new Error('認証エラーが発生しました。');
-            case 413:
-              throw new Error('画像サイズが大きすぎます。');
-            case 500:
-              throw new Error(`サーバーエラーが発生しました：${errorData?.message || 'しばらく待ってから再度お試しください。'}`);
-            default:
-              throw new Error(`エラーが発生しました（${status}）：${errorData?.message || 'しばらく待ってから再度お試しください。'}`);
+          try {
+            const errorData = await response.json();
+            if (errorData?.message) {
+              errorMessage = errorData.message;
+            } else {
+              // HTTPステータスコードに基づくエラーメッセージ
+              switch (response.status) {
+                case 400:
+                  errorMessage = '無効なリクエストです。画像データを確認してください。';
+                  break;
+                case 401:
+                  errorMessage = '認証エラーが発生しました。再度ログインしてください。';
+                  break;
+                case 403:
+                  errorMessage = 'アクセスが拒否されました。';
+                  break;
+                case 413:
+                  errorMessage = '画像サイズが大きすぎます。より小さいサイズの画像を使用してください。';
+                  break;
+                case 415:
+                  errorMessage = '対応していない画像形式です。';
+                  break;
+                case 500:
+                  errorMessage = 'サーバーエラーが発生しました。しばらく待ってから再度お試しください。';
+                  break;
+                case 503:
+                  errorMessage = 'サービスが一時的に利用できません。しばらく待ってから再度お試しください。';
+                  break;
+                default:
+                  errorMessage = `エラーが発生しました（${response.status}）。しばらく待ってから再度お試しください。`;
+              }
+            }
+          } catch (e) {
+            console.error('Error parsing error response:', e);
           }
-        } else if (error.request) {
-          // リクエストは送信されたがレスポンスがない
-          console.error('Request made but no response received:', {
-            url: error.config?.url,
-            method: error.config?.method,
-            headers: error.config?.headers
-          });
-          throw new Error('サーバーに接続できません。ネットワーク状態を確認してください。');
+          
+          throw new Error(errorMessage);
         }
+
+        const data = await response.json();
+        if (!data) {
+          throw new Error('サーバーからの応答が不正です');
+        }
+
+        return data;
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('リクエストがタイムアウトしました。ネットワーク状態を確認して、再度お試しください。');
+        }
+        throw fetchError;
+      } finally {
+        clearTimeout(timeout);
       }
+    } catch (error) {
+      console.error('Error uploading photo:', error);
+      
+      // ネットワークエラーの処理
+      if (error instanceof TypeError && error.message === 'Failed to fetch') {
+        throw new Error('ネットワークエラーが発生しました。インターネット接続を確認してください。');
+      }
+      
       // その他のエラー
-      console.error('Unexpected Error:', error);
+      if (error instanceof Error) {
+        throw new Error(`写真のアップロードに失敗しました：${error.message}`);
+      }
+      
       throw new Error('予期せぬエラーが発生しました。もう一度お試しください。');
     }
   },
