@@ -11,11 +11,13 @@ export interface PhotoMetadata {
   updated_at: string;
 }
 
+// 署名データの拡張インターフェース
 export interface SignatureData {
   signature: string;
-  imageHash: string;
+  imageHash: string;  // サーバー側では image_hash となるが、FormDataに変換時に調整
   challenge: string;
   timestamp: number;
+  wallet_address?: string;  // 新しいフィールド
 }
 
 export const photoService = {
@@ -105,117 +107,73 @@ export const photoService = {
         formData.append('imageHash', signatureData.imageHash);
         formData.append('challenge', signatureData.challenge);
         formData.append('timestamp', signatureData.timestamp.toString());
+        
+        // 新しいフィールド: wallet_address
+        if (signatureData.wallet_address) {
+          formData.append('wallet_address', signatureData.wallet_address);
+        }
       }
 
-      // デバッグ用 - どのURLにリクエストしているかをログ出力
-      console.log('Requesting to URL:', `${API_BASE_URL}/photos`);
+      // リクエストのURLとデータをログ出力
+      console.log('Uploading to:', `${API_BASE_URL}/photos`);
+      console.log('Form data keys:', [...formData.keys()]);
 
       // タイムアウト付きのfetch
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 30000);
 
       try {
-        // 複数のエンドポイントパターンを試す
-        let response;
-        let errorMessages = [];
-
-        // 1. 最初に通常のエンドポイントを試す
-        try {
-          console.log('Trying endpoint: ', `${API_BASE_URL}/photos`);
-          response = await fetch(`${API_BASE_URL}/photos`, {
-            method: 'POST',
-            headers: {
-              'Accept': 'application/json',
-            },
-            body: formData,
-            signal: controller.signal
-          });
-        } catch (err) {
-          errorMessages.push(`Standard endpoint error: ${err.message}`);
-        }
-
-        // 2. 上記が失敗した場合、スラッシュなしのパスを試す
-        if (!response || !response.ok) {
-          try {
-            console.log('Trying endpoint without trailing slash: ', `${API_BASE_URL}photos`);
-            response = await fetch(`${API_BASE_URL}photos`, {
-              method: 'POST',
-              headers: {
-                'Accept': 'application/json',
-              },
-              body: formData,
-              signal: controller.signal
-            });
-          } catch (err) {
-            errorMessages.push(`Without slash endpoint error: ${err.message}`);
-          }
-        }
-
-        // 3. 上記が失敗した場合、upload-imageエンドポイントを試す
-        if (!response || !response.ok) {
-          try {
-            console.log('Trying upload-image endpoint: ', `${API_BASE_URL}/upload-image`);
-            response = await fetch(`${API_BASE_URL}/upload-image`, {
-              method: 'POST',
-              headers: {
-                'Accept': 'application/json',
-              },
-              body: formData,
-              signal: controller.signal
-            });
-          } catch (err) {
-            errorMessages.push(`upload-image endpoint error: ${err.message}`);
-          }
-        }
-
+        const response = await fetch(`${API_BASE_URL}/photos`, {
+          method: 'POST',
+          headers: {
+            'Accept': 'application/json',
+          },
+          body: formData,
+          signal: controller.signal
+        });
+        
         clearTimeout(timeout); // タイムアウトをクリア
 
-        if (!response || !response.ok) {
+        if (!response.ok) {
           let errorMessage = 'アップロードに失敗しました。';
           
-          if (errorMessages.length > 0) {
-            errorMessage += ` 試したエンドポイント: ${errorMessages.join('; ')}`;
-          }
-          
-          if (response) {
-            try {
-              const errorData = await response.json();
-              if (errorData?.message) {
-                errorMessage = errorData.message;
-              } else {
-                // HTTPステータスコードに基づくエラーメッセージ
-                switch (response.status) {
-                  case 400:
-                    errorMessage = '無効なリクエストです。画像データを確認してください。';
-                    break;
-                  case 401:
-                    errorMessage = '認証エラーが発生しました。再度ログインしてください。';
-                    break;
-                  case 403:
-                    errorMessage = 'アクセスが拒否されました。';
-                    break;
-                  case 404:
-                    errorMessage = 'APIエンドポイントが見つかりません。サーバー設定を確認してください。';
-                    break;
-                  case 413:
-                    errorMessage = '画像サイズが大きすぎます。より小さいサイズの画像を使用してください。';
-                    break;
-                  case 415:
-                    errorMessage = '対応していない画像形式です。';
-                    break;
-                  case 500:
-                    errorMessage = 'サーバーエラーが発生しました。しばらく待ってから再度お試しください。';
-                    break;
-                  case 503:
-                    errorMessage = 'サービスが一時的に利用できません。しばらく待ってから再度お試しください。';
-                    break;
-                  default:
-                    errorMessage = `エラーが発生しました（${response.status}）。しばらく待ってから再度お試しください。`;
-                }
+          try {
+            const errorData = await response.json();
+            if (errorData?.message) {
+              errorMessage = errorData.message;
+            } else {
+              // HTTPステータスコードに基づくエラーメッセージ
+              switch (response.status) {
+                case 400:
+                  errorMessage = '無効なリクエストです。画像データを確認してください。';
+                  break;
+                case 401:
+                  errorMessage = '認証エラーが発生しました。再度ログインしてください。';
+                  break;
+                case 403:
+                  errorMessage = 'アクセスが拒否されました。';
+                  break;
+                case 404:
+                  errorMessage = 'APIエンドポイントが見つかりません。サーバー設定を確認してください。';
+                  break;
+                case 413:
+                  errorMessage = '画像サイズが大きすぎます。より小さいサイズの画像を使用してください。';
+                  break;
+                case 415:
+                  errorMessage = '対応していない画像形式です。';
+                  break;
+                case 500:
+                  errorMessage = 'サーバーエラーが発生しました。しばらく待ってから再度お試しください。';
+                  break;
+                case 503:
+                  errorMessage = 'サービスが一時的に利用できません。しばらく待ってから再度お試しください。';
+                  break;
+                default:
+                  errorMessage = `エラーが発生しました（${response.status}）。しばらく待ってから再度お試しください。`;
               }
-            } catch (e) {
-              console.error('Error parsing error response:', e);
             }
+          } catch (e) {
+            console.error('Error parsing error response:', e);
           }
           
           throw new Error(errorMessage);
