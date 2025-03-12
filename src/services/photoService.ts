@@ -82,8 +82,13 @@ export const photoService = {
       const response = await axios.post(`${API_BASE_URL}/photos`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
+          'Accept': 'application/json',
         },
-        timeout: 10000, // 10秒でタイムアウト
+        timeout: 10000,
+        withCredentials: true,
+        validateStatus: function (status) {
+          return status >= 200 && status < 500;
+        }
       });
       
       if (!response.data) {
@@ -93,31 +98,48 @@ export const photoService = {
       return response.data;
     } catch (error) {
       if (axios.isAxiosError(error)) {
+        console.error('Axios Error Details:', {
+          status: error.response?.status,
+          statusText: error.response?.statusText,
+          data: error.response?.data,
+          headers: error.response?.headers,
+          config: error.config
+        });
+
         if (error.code === 'ECONNABORTED') {
           throw new Error('接続がタイムアウトしました。ネットワーク状態を確認してください。');
         }
         if (error.response) {
           // サーバーからのエラーレスポンス
           const status = error.response.status;
+          const errorData = error.response.data;
+          
+          console.error('Server Error Response:', errorData);
+          
           switch (status) {
             case 400:
-              throw new Error('無効なリクエストです。画像データを確認してください。');
+              throw new Error(`無効なリクエストです：${errorData?.message || '画像データを確認してください。'}`);
             case 401:
               throw new Error('認証エラーが発生しました。');
             case 413:
               throw new Error('画像サイズが大きすぎます。');
             case 500:
-              throw new Error('サーバーエラーが発生しました。しばらく待ってから再度お試しください。');
+              throw new Error(`サーバーエラーが発生しました：${errorData?.message || 'しばらく待ってから再度お試しください。'}`);
             default:
-              throw new Error(`エラーが発生しました（${status}）。しばらく待ってから再度お試しください。`);
+              throw new Error(`エラーが発生しました（${status}）：${errorData?.message || 'しばらく待ってから再度お試しください。'}`);
           }
         } else if (error.request) {
           // リクエストは送信されたがレスポンスがない
+          console.error('Request made but no response received:', {
+            url: error.config?.url,
+            method: error.config?.method,
+            headers: error.config?.headers
+          });
           throw new Error('サーバーに接続できません。ネットワーク状態を確認してください。');
         }
       }
       // その他のエラー
-      console.error('Error uploading photo:', error);
+      console.error('Unexpected Error:', error);
       throw new Error('予期せぬエラーが発生しました。もう一度お試しください。');
     }
   },
