@@ -79,16 +79,46 @@ export const photoService = {
       formData.append('mime_type', mimeType);
       formData.append('file_size', blob.size.toString());
       
-      const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+      const response = await axios.post(`${API_BASE_URL}/photos`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
         },
+        timeout: 10000, // 10秒でタイムアウト
       });
+      
+      if (!response.data) {
+        throw new Error('サーバーからの応答が空です');
+      }
       
       return response.data;
     } catch (error) {
+      if (axios.isAxiosError(error)) {
+        if (error.code === 'ECONNABORTED') {
+          throw new Error('接続がタイムアウトしました。ネットワーク状態を確認してください。');
+        }
+        if (error.response) {
+          // サーバーからのエラーレスポンス
+          const status = error.response.status;
+          switch (status) {
+            case 400:
+              throw new Error('無効なリクエストです。画像データを確認してください。');
+            case 401:
+              throw new Error('認証エラーが発生しました。');
+            case 413:
+              throw new Error('画像サイズが大きすぎます。');
+            case 500:
+              throw new Error('サーバーエラーが発生しました。しばらく待ってから再度お試しください。');
+            default:
+              throw new Error(`エラーが発生しました（${status}）。しばらく待ってから再度お試しください。`);
+          }
+        } else if (error.request) {
+          // リクエストは送信されたがレスポンスがない
+          throw new Error('サーバーに接続できません。ネットワーク状態を確認してください。');
+        }
+      }
+      // その他のエラー
       console.error('Error uploading photo:', error);
-      throw error;
+      throw new Error('予期せぬエラーが発生しました。もう一度お試しください。');
     }
   },
 

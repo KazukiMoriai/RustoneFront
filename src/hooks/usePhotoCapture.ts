@@ -35,7 +35,11 @@ export const usePhotoCapture = (): UsePhotoCaptureReturn => {
       await photoService.uploadPhoto(imgSrc);
       setImgSrc(null);
     } catch (err) {
-      setError('写真のアップロード中にエラーが発生しました。もう一度お試しください。');
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError('写真のアップロード中にエラーが発生しました。もう一度お試しください。');
+      }
       console.error('Error uploading photo:', err);
     } finally {
       setIsSaving(false);
