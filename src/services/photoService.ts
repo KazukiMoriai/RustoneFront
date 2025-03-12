@@ -1,8 +1,6 @@
-import axios from 'axios';
+const API_BASE_URL = 'https://moriai.sakura.ne.jp/rustoneback/api';
 
-const API_BASE_URL = 'https://moriai.sakura.ne.jp/api';
-
-// 将来的なサーバー連携のためのインターフェースは残しておく
+// サーバー連携のためのインターフェース
 export interface PhotoMetadata {
   id: number;
   file_name: string;
@@ -101,9 +99,12 @@ export const photoService = {
       try {
         const response = await fetch(`${API_BASE_URL}/photos`, {
           method: 'POST',
-          credentials: 'include',
+          // CORSエラーの可能性を排除するため、必要ない場合はcredentialsを省略
+          // credentials: 'include',
           headers: {
             'Accept': 'application/json',
+            // 必要に応じて認証ヘッダーを追加
+            // 'Authorization': `Bearer ${token}`,
           },
           body: formData,
           signal: controller.signal
@@ -186,8 +187,36 @@ export const photoService = {
 
   async getPhotos(): Promise<PhotoMetadata[]> {
     try {
-      const response = await axios.get(`${API_BASE_URL}/photos`);
-      return response.data;
+      // axiosからfetchに変更
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10秒でタイムアウト
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/photos`, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            // 必要に応じて認証ヘッダーを追加
+            // 'Authorization': `Bearer ${token}`,
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeout);
+        
+        if (!response.ok) {
+          throw new Error(`写真の取得に失敗しました（${response.status}）`);
+        }
+        
+        return await response.json();
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('リクエストがタイムアウトしました。ネットワーク状態を確認してください。');
+        }
+        throw fetchError;
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch (error) {
       console.error('Error fetching photos:', error);
       throw error;
@@ -196,7 +225,34 @@ export const photoService = {
 
   async deletePhoto(id: number): Promise<void> {
     try {
-      await axios.delete(`${API_BASE_URL}/photos/${id}`);
+      // axiosからfetchに変更
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000); // 10秒でタイムアウト
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/photos/${id}`, {
+          method: 'DELETE',
+          headers: {
+            'Accept': 'application/json',
+            // 必要に応じて認証ヘッダーを追加
+            // 'Authorization': `Bearer ${token}`,
+          },
+          signal: controller.signal
+        });
+        
+        clearTimeout(timeout);
+        
+        if (!response.ok) {
+          throw new Error(`写真の削除に失敗しました（${response.status}）`);
+        }
+      } catch (fetchError) {
+        if (fetchError.name === 'AbortError') {
+          throw new Error('リクエストがタイムアウトしました。ネットワーク状態を確認してください。');
+        }
+        throw fetchError;
+      } finally {
+        clearTimeout(timeout);
+      }
     } catch (error) {
       console.error('Error deleting photo:', error);
       throw error;
