@@ -68,9 +68,27 @@ export const photoService = {
       console.error('Error saving photo locally:', error);
       throw error;
     }
+    
   },
 
+
   async uploadPhoto(photoData: string, signatureData?: SignatureData): Promise<PhotoMetadata> {
+    // デバッグ出力を追加
+    console.log('uploadPhoto called with:', { 
+      photoDataExists: !!photoData,
+      signatureDataExists: !!signatureData 
+    });
+    
+    if (signatureData) {
+      console.log('SignatureData details:', {
+        signature: signatureData.signature ? `${signatureData.signature.slice(0, 10)}...` : 'missing',
+        imageHash: signatureData.imageHash ? `${signatureData.imageHash.slice(0, 10)}...` : 'missing',
+        challenge: signatureData.challenge ? signatureData.challenge : 'missing',
+        timestamp: signatureData.timestamp ? signatureData.timestamp : 'missing',
+        wallet_address: signatureData.wallet_address ? `${signatureData.wallet_address.slice(0, 10)}...` : 'missing'
+      });
+    }
+    
     try {
       // Base64データからBlobを作成
       const base64Data = photoData.split(',')[1];
@@ -78,24 +96,32 @@ export const photoService = {
       
       // Base64データのバリデーション
       if (!base64Data || !mimeType) {
+        console.error('Base64 validation failed:', { base64Exists: !!base64Data, mimeType });
         throw new Error('無効な画像データです');
       }
 
       // 画像タイプの確認
       if (!mimeType.startsWith('image/')) {
+        console.error('Invalid mime type:', { mimeType });
         throw new Error('アップロードできるのは画像ファイルのみです');
       }
 
       const blob = await fetch(photoData).then(res => res.blob());
+      console.log('Blob created:', { 
+        size: `${(blob.size / 1024).toFixed(2)} KB`, 
+        type: blob.type 
+      });
       
       // ファイルサイズチェック（10MB制限）
       const maxSize = 10 * 1024 * 1024; // 10MB
       if (blob.size > maxSize) {
+        console.error('File size too large:', { size: blob.size, maxSize });
         throw new Error('画像サイズが大きすぎます（上限：10MB）');
       }
       
       // ファイル名を生成
       const fileName = `photo_${Date.now()}.${mimeType.split('/')[1]}`;
+      console.log('Generated filename:', fileName);
       
       // FormDataの作成
       const formData = new FormData();
@@ -105,14 +131,17 @@ export const photoService = {
       if (signatureData) {
         // 署名関連の必須フィールドを確認
         if (!signatureData.signature) {
+          console.error('Missing signature in signatureData');
           throw new Error('署名データが必要です');
         }
         
         if (!signatureData.imageHash) {
+          console.error('Missing imageHash in signatureData');
           throw new Error('画像ハッシュが必要です');
         }
         
         if (!signatureData.wallet_address) {
+          console.error('Missing wallet_address in signatureData');
           throw new Error('ウォレットアドレスが必要です');
         }
         
@@ -132,6 +161,7 @@ export const photoService = {
       const timeout = setTimeout(() => controller.abort(), 30000);
 
       try {
+        console.log('Starting fetch request...');
         const response = await fetch(`${API_BASE_URL}/photos`, {
           method: 'POST',
           headers: {
@@ -142,12 +172,18 @@ export const photoService = {
         });
         
         clearTimeout(timeout); // タイムアウトをクリア
+        console.log('Fetch response received:', { 
+          status: response.status, 
+          statusText: response.statusText, 
+          ok: response.ok 
+        });
 
         if (!response.ok) {
           let errorMessage = 'アップロードに失敗しました。';
           
           try {
             const errorData = await response.json();
+            console.error('Server error response:', errorData);
             if (errorData?.message) {
               errorMessage = errorData.message;
             } else {
@@ -190,12 +226,14 @@ export const photoService = {
 
         const data = await response.json();
         if (!data) {
+          console.error('Empty response from server');
           throw new Error('サーバーからの応答が不正です');
         }
 
         console.log('Upload successful with response:', data);
         return data;
       } catch (fetchError) {
+        console.error('Fetch error:', fetchError);
         if (fetchError.name === 'AbortError') {
           throw new Error('リクエストがタイムアウトしました。ネットワーク状態を確認して、再度お試しください。');
         }
@@ -221,11 +259,13 @@ export const photoService = {
   },
 
   async getPhotos(): Promise<PhotoMetadata[]> {
+    console.log('getPhotos called');
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000); // 10秒でタイムアウト
       
       try {
+        console.log('Fetching photos from:', `${API_BASE_URL}/photos`);
         const response = await fetch(`${API_BASE_URL}/photos`, {
           method: 'GET',
           headers: {
@@ -235,12 +275,18 @@ export const photoService = {
         });
         
         clearTimeout(timeout);
+        console.log('Photos response received:', { 
+          status: response.status, 
+          ok: response.ok 
+        });
         
         if (!response.ok) {
           throw new Error(`写真の取得に失敗しました（${response.status}）`);
         }
         
-        return await response.json();
+        const data = await response.json();
+        console.log(`Received ${data?.length || 0} photos`);
+        return data;
       } catch (fetchError) {
         if (fetchError.name === 'AbortError') {
           throw new Error('リクエストがタイムアウトしました。ネットワーク状態を確認してください。');
@@ -256,11 +302,13 @@ export const photoService = {
   },
 
   async deletePhoto(id: number): Promise<void> {
+    console.log('deletePhoto called for ID:', id);
     try {
       const controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 10000); // 10秒でタイムアウト
       
       try {
+        console.log('Deleting photo at:', `${API_BASE_URL}/photos/${id}`);
         const response = await fetch(`${API_BASE_URL}/photos/${id}`, {
           method: 'DELETE',
           headers: {
@@ -270,10 +318,15 @@ export const photoService = {
         });
         
         clearTimeout(timeout);
+        console.log('Delete response received:', { 
+          status: response.status, 
+          ok: response.ok 
+        });
         
         if (!response.ok) {
           throw new Error(`写真の削除に失敗しました（${response.status}）`);
         }
+        console.log('Photo deleted successfully');
       } catch (fetchError) {
         if (fetchError.name === 'AbortError') {
           throw new Error('リクエストがタイムアウトしました。ネットワーク状態を確認してください。');
@@ -285,6 +338,50 @@ export const photoService = {
     } catch (error) {
       console.error('Error deleting photo:', error);
       throw error;
+    }
+  },
+  
+  // 診断用のテスト関数
+  testUpload: async (photoData: string, account?: string): Promise<void> => {
+    try {
+      console.log('======= TEST UPLOAD FUNCTION =======');
+      console.log('ウォレット状態:', { connected: !!account, address: account || 'not connected' });
+      
+      // 署名なしアップロードをテスト
+      console.log('1. 署名なしアップロードをテスト...');
+      try {
+        await photoService.uploadPhoto(photoData);
+        console.log('✅ 署名なしアップロード成功');
+      } catch (error) {
+        console.error('❌ 署名なしアップロード失敗:', error);
+      }
+      
+      // ウォレット接続確認
+      if (!account) {
+        console.log('⚠️ 署名付きアップロードにはウォレット接続が必要です');
+        console.log('======= TEST COMPLETED WITH WARNINGS =======');
+        return;
+      }
+      
+      // 署名付きアップロードをテスト
+      console.log('2. 署名付きアップロードをテスト...');
+      try {
+        await photoService.uploadPhoto(photoData, {
+          wallet_address: account,
+          signature: 'test_signature',
+          imageHash: 'test_hash',
+          challenge: 'test_challenge',
+          timestamp: Date.now()
+        });
+        console.log('✅ 署名付きアップロード成功');
+      } catch (error) {
+        console.error('❌ 署名付きアップロード失敗:', error);
+      }
+      
+      console.log('======= TEST COMPLETED =======');
+    } catch (error) {
+      console.error('テスト全体でのエラー:', error);
+      console.log('======= TEST FAILED =======');
     }
   }
 };
