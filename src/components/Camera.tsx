@@ -24,7 +24,7 @@ const Camera: React.FC = () => {
   const { imgSrc, isSaving, error: photoError, capture, retake, savePhoto } = usePhotoCapture();
   const { account, isConnecting, error: web3Error, connect, disconnect, signMessage } = useWeb3();
   const [isSigning, setIsSigning] = useState(false);
-  const [debugInfo, setDebugInfo] = useState<any>(null);
+  const [errorInfo, setErrorInfo] = useState<string | null>(null);
 
   const handleCapture = () => {
     const imageSrc = webcamRef.current?.getScreenshot();
@@ -36,11 +36,13 @@ const Camera: React.FC = () => {
   const handleSaveWithSignature = async () => {
     if (!imgSrc || !account) {
       console.error("前提条件エラー:", { hasImage: !!imgSrc, hasAccount: !!account, account });
-      setDebugInfo({ error: "画像またはウォレット接続がありません", hasImage: !!imgSrc, hasAccount: !!account });
+      setErrorInfo("画像またはウォレット接続がありません");
       return;
     }
   
     setIsSigning(true);
+    setErrorInfo(null);
+    
     let signatureData = null;
     try {
       console.log("処理開始 - アカウント情報:", { account, accountType: typeof account });
@@ -84,16 +86,11 @@ const Camera: React.FC = () => {
       // 署名付きで画像を保存
       await savePhoto(signatureData);
       
-      console.log("保存処理完了");
-      setDebugInfo({ success: true, signatureData });
+      console.log("保存処理完了", { success: true, signatureData });
       
     } catch (err) {
       console.error('署名・保存処理エラー:', err);
-      setDebugInfo({ 
-        error: err instanceof Error ? err.message : "不明なエラー", 
-        phase: isSaving ? "保存中" : "署名中",
-        signatureData 
-      });
+      setErrorInfo(err instanceof Error ? err.message : "エラーが発生しました。もう一度お試しください。");
     } finally {
       setIsSigning(false);
     }
@@ -112,21 +109,12 @@ const Camera: React.FC = () => {
   return (
     <Container maxWidth="sm">
       <StyledPaper elevation={3}>
-        {(photoError || web3Error) && (
-          <Alert severity="error" onClose={() => null}>
-            {photoError || web3Error}
-          </Alert>
-        )}
-
-        {/* デバッグ情報表示エリア */}
-        {debugInfo && (
-          <Alert severity={debugInfo.success ? "info" : "warning"} 
-                 onClose={() => setDebugInfo(null)}
-                 sx={{ width: '100%', overflowX: 'auto' }}>
-            <Typography variant="body2" component="pre" 
-                      sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
-              {JSON.stringify(debugInfo, null, 2)}
-            </Typography>
+        {(photoError || web3Error || errorInfo) && (
+          <Alert 
+            severity="error" 
+            onClose={() => errorInfo ? setErrorInfo(null) : null}
+          >
+            {photoError || web3Error || errorInfo}
           </Alert>
         )}
 
@@ -152,13 +140,6 @@ const Camera: React.FC = () => {
           >
             {isConnecting ? '接続中...' : 'MetaMaskに接続'}
           </Button>
-        )}
-        
-        {/* デバッグ用ウォレット情報表示 */}
-        {account && (
-          <Typography variant="caption" color="text.secondary">
-            ウォレットアドレス完全版: {account}
-          </Typography>
         )}
         
         {imgSrc ? (
