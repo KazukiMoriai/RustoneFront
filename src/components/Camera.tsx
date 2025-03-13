@@ -34,27 +34,28 @@ const Camera: React.FC = () => {
 
   const handleSaveWithSignature = async () => {
     if (!imgSrc || !account) return;
-
+  
     setIsSigning(true);
     try {
       // 画像をハッシュ化
       const imageHash = await hashImage(imgSrc);
-
+  
       // TODO: サーバーからチャレンジを取得する実装に置き換え
       const challenge = "temporary_challenge";
-
+  
       // 署名用メッセージを作成
       const message = createSignMessage(imageHash, challenge);
-
+  
       // メッセージに署名
       const signature = await signMessage(message);
-
+  
       // 署名付きで画像を保存
       await savePhoto({
         signature,
         imageHash,
         challenge,
-        timestamp: Math.floor(Date.now() / 1000)
+        timestamp: Math.floor(Date.now() / 1000),
+        wallet_address: account 
       });
     } catch (err) {
       console.error('Error during signing:', err);
