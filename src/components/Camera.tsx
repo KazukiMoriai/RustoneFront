@@ -57,6 +57,13 @@ const Camera: React.FC = () => {
         timestamp: Math.floor(Date.now() / 1000),
         wallet_address: account 
       });
+      console.log("署名データ作成時:", {
+        account, 
+        imageHash,
+        hasAccount: !!account,
+        signatureLength: signature?.length
+      });
+      
     } catch (err) {
       console.error('Error during signing:', err);
     } finally {
