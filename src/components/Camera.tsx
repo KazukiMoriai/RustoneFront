@@ -24,6 +24,7 @@ const Camera: React.FC = () => {
   const { imgSrc, isSaving, error: photoError, capture, retake, savePhoto } = usePhotoCapture();
   const { account, isConnecting, error: web3Error, connect, disconnect, signMessage } = useWeb3();
   const [isSigning, setIsSigning] = useState(false);
+  const [debugInfo, setDebugInfo] = useState<any>(null);
 
   const handleCapture = () => {
     const imageSrc = webcamRef.current?.getScreenshot();
@@ -33,39 +34,66 @@ const Camera: React.FC = () => {
   };
 
   const handleSaveWithSignature = async () => {
-    if (!imgSrc || !account) return;
+    if (!imgSrc || !account) {
+      console.error("前提条件エラー:", { hasImage: !!imgSrc, hasAccount: !!account, account });
+      setDebugInfo({ error: "画像またはウォレット接続がありません", hasImage: !!imgSrc, hasAccount: !!account });
+      return;
+    }
   
     setIsSigning(true);
+    let signatureData = null;
     try {
+      console.log("処理開始 - アカウント情報:", { account, accountType: typeof account });
+      
       // 画像をハッシュ化
       const imageHash = await hashImage(imgSrc);
+      console.log("画像ハッシュ化完了:", { imageHash });
   
       // TODO: サーバーからチャレンジを取得する実装に置き換え
       const challenge = "temporary_challenge";
   
       // 署名用メッセージを作成
       const message = createSignMessage(imageHash, challenge);
+      console.log("署名メッセージ作成:", { message });
   
       // メッセージに署名
       const signature = await signMessage(message);
-  
-      // 署名付きで画像を保存
-      await savePhoto({
+      console.log("署名取得成功:", { signatureLength: signature?.length });
+      
+      // デバッグ用にローカルストレージに保存
+      localStorage.setItem('debug_account', account);
+      localStorage.setItem('debug_signature', signature);
+      
+      // 署名データの作成
+      signatureData = {
         signature,
         imageHash,
         challenge,
         timestamp: Math.floor(Date.now() / 1000),
-        wallet_address: account 
-      });
-      console.log("署名データ作成時:", {
-        account, 
-        imageHash,
-        hasAccount: !!account,
-        signatureLength: signature?.length
+        wallet_address: account
+      };
+      
+      console.log("署名データ作成完了:", {
+        hasSignature: !!signatureData.signature,
+        hasImageHash: !!signatureData.imageHash,
+        hasWalletAddress: !!signatureData.wallet_address,
+        wallet_address: signatureData.wallet_address,
+        walletAddressType: typeof signatureData.wallet_address
       });
       
+      // 署名付きで画像を保存
+      await savePhoto(signatureData);
+      
+      console.log("保存処理完了");
+      setDebugInfo({ success: true, signatureData });
+      
     } catch (err) {
-      console.error('Error during signing:', err);
+      console.error('署名・保存処理エラー:', err);
+      setDebugInfo({ 
+        error: err instanceof Error ? err.message : "不明なエラー", 
+        phase: isSaving ? "保存中" : "署名中",
+        signatureData 
+      });
     } finally {
       setIsSigning(false);
     }
@@ -87,6 +115,18 @@ const Camera: React.FC = () => {
         {(photoError || web3Error) && (
           <Alert severity="error" onClose={() => null}>
             {photoError || web3Error}
+          </Alert>
+        )}
+
+        {/* デバッグ情報表示エリア */}
+        {debugInfo && (
+          <Alert severity={debugInfo.success ? "info" : "warning"} 
+                 onClose={() => setDebugInfo(null)}
+                 sx={{ width: '100%', overflowX: 'auto' }}>
+            <Typography variant="body2" component="pre" 
+                      sx={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}>
+              {JSON.stringify(debugInfo, null, 2)}
+            </Typography>
           </Alert>
         )}
 
@@ -112,6 +152,13 @@ const Camera: React.FC = () => {
           >
             {isConnecting ? '接続中...' : 'MetaMaskに接続'}
           </Button>
+        )}
+        
+        {/* デバッグ用ウォレット情報表示 */}
+        {account && (
+          <Typography variant="caption" color="text.secondary">
+            ウォレットアドレス完全版: {account}
+          </Typography>
         )}
         
         {imgSrc ? (
@@ -162,4 +209,4 @@ const Camera: React.FC = () => {
   );
 };
 
-export default Camera; 
+export default Camera;
