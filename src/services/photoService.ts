@@ -1,4 +1,6 @@
 const API_BASE_URL = 'https://moriai.sakura.ne.jp/rustoneback/api';
+import { ethers } from 'ethers';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../contracts/ImageSignatureStorage';
 
 // サーバー連携のためのインターフェース
 export interface PhotoMetadata {
@@ -18,6 +20,12 @@ export interface SignatureData {
   challenge: string;
   timestamp: number;
   wallet_address: string;  // 必須フィールド
+}
+
+// 検証結果のインターフェース
+export interface VerificationResult {
+  isValid: boolean;
+  message: string;
 }
 
 export const photoService = {
@@ -341,6 +349,57 @@ export const photoService = {
     }
   },
   
+  // 新規追加: ブロックチェーン上で署名を検証する関数
+  async verifySignature(
+    imageHash: string,
+    timestamp: number,
+    signature: string,
+    signerAddress: string
+  ): Promise<VerificationResult> {
+    console.log('Verifying signature on blockchain:', {
+      imageHash: imageHash.slice(0, 10) + '...',
+      timestamp,
+      signature: signature.slice(0, 10) + '...',
+      signerAddress
+    });
+    
+    try {
+      // MetaMaskプロバイダーとコントラクトの設定
+      if (typeof window.ethereum === 'undefined') {
+        return {
+          isValid: false,
+          message: 'MetaMaskがインストールされていません。署名の検証にはMetaMaskが必要です。'
+        };
+      }
+      
+      const provider = new ethers.BrowserProvider(window.ethereum);
+      const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+      
+      // コントラクトのverifySignature関数を呼び出し
+      const isValid = await contract.verifySignature(
+        imageHash,
+        timestamp,
+        signature,
+        signerAddress
+      );
+      
+      console.log('Signature verification result:', { isValid });
+      
+      return {
+        isValid,
+        message: isValid 
+          ? '署名は有効です。この画像は本物であることが確認されました。' 
+          : '署名の検証に失敗しました。画像が改ざんされている可能性があります。'
+      };
+    } catch (error) {
+      console.error('Error verifying signature:', error);
+      return {
+        isValid: false,
+        message: `署名の検証中にエラーが発生しました: ${error instanceof Error ? error.message : '不明なエラー'}`
+      };
+    }
+  },
+  
   // 診断用のテスト関数
   testUpload: async (photoData: string, account?: string): Promise<void> => {
     try {
@@ -383,5 +442,40 @@ export const photoService = {
       console.error('テスト全体でのエラー:', error);
       console.log('======= TEST FAILED =======');
     }
+  },
+  
+  // 新規追加: 署名検証のテスト関数
+  testVerification: async (
+    imageHash: string, 
+    timestamp: number, 
+    signature: string, 
+    signerAddress: string
+  ): Promise<void> => {
+    console.log('======= TEST VERIFICATION FUNCTION =======');
+    console.log('検証データ:', {
+      imageHash: imageHash.slice(0, 10) + '...',
+      timestamp,
+      signature: signature.slice(0, 10) + '...',
+      signerAddress
+    });
+    
+    try {
+      const result = await photoService.verifySignature(
+        imageHash,
+        timestamp,
+        signature,
+        signerAddress
+      );
+      
+      if (result.isValid) {
+        console.log('✅ 署名検証成功:', result.message);
+      } else {
+        console.warn('⚠️ 署名検証失敗:', result.message);
+      }
+    } catch (error) {
+      console.error('❌ 署名検証エラー:', error);
+    }
+    
+    console.log('======= TEST COMPLETED =======');
   }
 };
