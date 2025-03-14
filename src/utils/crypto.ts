@@ -3,7 +3,7 @@ import { ethers } from 'ethers';
 export const hashImage = async (imageData: string): Promise<string> => {
   try {
     // Base64データからバイナリデータを取得
-    const base64Data = imageData.split(',')[1]; 
+    const base64Data = imageData.split(',')[1];
     const binaryData = atob(base64Data);
     
     // バイナリデータをUint8Arrayに変換
@@ -24,10 +24,11 @@ export const hashImage = async (imageData: string): Promise<string> => {
   }
 };
 
-export const createSignMessage = (imageHash: string, challenge: string): string => {
-  const timestamp = Math.floor(Date.now() / 1000);
+export const createSignMessage = (imageHash: string, timestamp: string): string => {
+  // timestampを数値に変換して署名メッセージを作成
+  // ブロックチェーンに送信する形式と一致させる
   return ethers.solidityPackedKeccak256(
-    ['bytes32', 'string', 'uint256'],
-    [imageHash, challenge, timestamp]
+    ['string', 'uint256'],
+    [imageHash, parseInt(timestamp)]
   );
-}; 
+};

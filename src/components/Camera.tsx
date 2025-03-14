@@ -22,8 +22,18 @@ const WalletAddress = styled(Typography)(({ theme }) => ({
 const Camera: React.FC = () => {
   const webcamRef = useRef<Webcam>(null);
   const { imgSrc, isSaving, error: photoError, capture, retake, savePhoto } = usePhotoCapture();
-  const { account, isConnecting, error: web3Error, connect, disconnect, signMessage } = useWeb3();
+  const { 
+    account, 
+    isConnecting, 
+    error: web3Error, 
+    connect, 
+    disconnect, 
+    signMessage,
+    storeImageData 
+  } = useWeb3();
+  
   const [isSigning, setIsSigning] = useState(false);
+  const [isBlockchainSaving, setIsBlockchainSaving] = useState(false);
   const [errorInfo, setErrorInfo] = useState<string | null>(null);
 
   const handleCapture = () => {
@@ -43,7 +53,6 @@ const Camera: React.FC = () => {
     setIsSigning(true);
     setErrorInfo(null);
     
-    let signatureData = null;
     try {
       console.log("処理開始 - アカウント情報:", { account, accountType: typeof account });
       
@@ -51,27 +60,23 @@ const Camera: React.FC = () => {
       const imageHash = await hashImage(imgSrc);
       console.log("画像ハッシュ化完了:", { imageHash });
   
-      // TODO: サーバーからチャレンジを取得する実装に置き換え
-      const challenge = "temporary_challenge";
-  
+      // タイムスタンプ
+      const timestamp = Math.floor(Date.now() / 1000);
+      
       // 署名用メッセージを作成
-      const message = createSignMessage(imageHash, challenge);
+      const message = createSignMessage(imageHash, timestamp.toString());
       console.log("署名メッセージ作成:", { message });
   
       // メッセージに署名
       const signature = await signMessage(message);
       console.log("署名取得成功:", { signatureLength: signature?.length });
       
-      // デバッグ用にローカルストレージに保存
-      localStorage.setItem('debug_account', account);
-      localStorage.setItem('debug_signature', signature);
-      
       // 署名データの作成
-      signatureData = {
+      const signatureData = {
         signature,
         imageHash,
-        challenge,
-        timestamp: Math.floor(Date.now() / 1000),
+        challenge: "temporary_challenge", // 互換性のため残す
+        timestamp,
         wallet_address: account
       };
       
@@ -83,8 +88,15 @@ const Camera: React.FC = () => {
         walletAddressType: typeof signatureData.wallet_address
       });
       
-      // 署名付きで画像を保存
+      // 署名付きで画像をLaravelサーバーに保存
       await savePhoto(signatureData);
+      
+      // ブロックチェーンにも保存
+      setIsBlockchainSaving(true);
+      console.log("ブロックチェーンに保存開始");
+      
+      const txResult = await storeImageData(imgSrc, imageHash, timestamp, signature);
+      console.log("ブロックチェーン保存完了:", txResult);
       
       console.log("保存処理完了", { success: true, signatureData });
       
@@ -93,6 +105,7 @@ const Camera: React.FC = () => {
       setErrorInfo(err instanceof Error ? err.message : "エラーが発生しました。もう一度お試しください。");
     } finally {
       setIsSigning(false);
+      setIsBlockchainSaving(false);
     }
   };
 
@@ -105,6 +118,12 @@ const Camera: React.FC = () => {
     height: 720,
     facingMode: "user"
   };
+
+  const isProcessing = isSaving || isSigning || isBlockchainSaving;
+  const processingText = 
+    isBlockchainSaving ? 'ブロックチェーンに保存中...' : 
+    isSigning ? '署名中...' : 
+    isSaving ? '保存中...' : '署名して保存';
 
   return (
     <Container maxWidth="sm">
@@ -150,7 +169,7 @@ const Camera: React.FC = () => {
                 variant="contained"
                 color="primary"
                 onClick={retake}
-                disabled={isSaving || isSigning}
+                disabled={isProcessing}
               >
                 撮り直す
               </Button>
@@ -158,10 +177,10 @@ const Camera: React.FC = () => {
                 variant="contained"
                 color="success"
                 onClick={handleSaveWithSignature}
-                disabled={isSaving || isSigning || !account}
-                startIcon={(isSaving || isSigning) ? <CircularProgress size={20} /> : null}
+                disabled={isProcessing || !account}
+                startIcon={isProcessing ? <CircularProgress size={20} /> : null}
               >
-                {isSaving ? '保存中...' : isSigning ? '署名中...' : '署名して保存'}
+                {processingText}
               </Button>
             </Box>
           </Box>
