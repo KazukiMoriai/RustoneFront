@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { photoService, PhotoMetadata } from '../services/photoService';
+import { photoService } from '../services/photoService';
 
 interface SignatureData {
   signature: string;
@@ -9,13 +9,26 @@ interface SignatureData {
   wallet_address: string;
 }
 
+interface PhotoResponse {
+  message: string;
+  photo: {
+    id: number;
+    file_path: string;
+    file_name: string;
+    mime_type: string;
+    file_size: number;
+    created_at: string;
+    updated_at: string;
+  }
+}
+
 interface UsePhotoCaptureReturn {
   imgSrc: string | null;
   isSaving: boolean;
   error: string | null;
   capture: (imageSrc: string) => void;
   retake: () => void;
-  savePhoto: (signatureData?: SignatureData) => Promise<PhotoMetadata>;
+  savePhoto: (signatureData?: SignatureData) => Promise<PhotoResponse>;
 }
 
 export const usePhotoCapture = (): UsePhotoCaptureReturn => {
@@ -33,17 +46,16 @@ export const usePhotoCapture = (): UsePhotoCaptureReturn => {
     setError(null);
   }, []);
 
-  const savePhoto = async (signatureData?: SignatureData): Promise<PhotoMetadata> => {
-    if (!imgSrc) {
-      throw new Error('No image to save');
-    }
+  const savePhoto = async (signatureData?: SignatureData): Promise<PhotoResponse> => {
+    if (!imgSrc) throw new Error("画像データがありません");
 
     setIsSaving(true);
     setError(null);
 
     try {
-      const result = await photoService.uploadPhoto(imgSrc, signatureData);
-      return result;
+      const response = await photoService.uploadPhoto(imgSrc, signatureData);
+      setImgSrc(null);
+      return response as PhotoResponse;
     } catch (err) {
       if (err instanceof Error) {
         setError(err.message);

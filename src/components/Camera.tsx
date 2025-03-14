@@ -88,18 +88,20 @@ const Camera: React.FC = () => {
         walletAddressType: typeof signatureData.wallet_address
       });
       
-      // 署名付きで画像をLaravelサーバーに保存
+      // 署名付きで画像をLaravelサーバーに保存し、結果を受け取る
       const uploadResult = await savePhoto(signatureData);
+      console.log("サーバー保存完了:", uploadResult);
       
-      // ブロックチェーンにも保存（ここで画像URLを使用する）
+      // ブロックチェーンにも保存
       setIsBlockchainSaving(true);
       console.log("ブロックチェーンに保存開始");
       
-      // 画像URLの生成（実際のアプリに合わせて調整）
-      const API_BASE_URL = 'https://moriai.sakura.ne.jp/rustoneback/api';
-      const imageUrl = `${API_BASE_URL}/photos/${uploadResult.id}`;
+      // file_pathからURLを構築
+      const storagePath = uploadResult.photo.file_path;
+      const imageUrl = `https://moriai.sakura.ne.jp/rustoneback/storage/${storagePath}`;
       console.log("生成した画像URL:", imageUrl);
       
+      // 生成したURLを使ってブロックチェーンに保存
       const txResult = await storeImageData(imageUrl, imageHash, timestamp, signature);
       console.log("ブロックチェーン保存完了:", txResult);
       
