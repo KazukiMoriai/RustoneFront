@@ -10,7 +10,7 @@ interface UseWeb3Return {
   connect: () => Promise<void>;
   disconnect: () => void;
   signMessage: (message: string) => Promise<string>;
-  storeImageData: (imageUrl: string, imageHash: string, timestamp: number, signature: string) => Promise<any>;
+  storeImageData: (imageUrl: string, imageHash: string, timestamp: number, signature: string) => Promise<ethers.TransactionReceipt>;
 }
 
 export const useWeb3 = (): UseWeb3Return => {
@@ -104,10 +104,19 @@ export const useWeb3 = (): UseWeb3Return => {
     imageHash: string,
     timestamp: number,
     signature: string
-  ) => {
+  ): Promise<ethers.TransactionReceipt> => {
     try {
+      console.log("storeImageData called with:", {
+        imageUrl,
+        imageHash,
+        timestamp,
+        signatureLength: signature.length
+      });
+      
       const contract = await getContract();
       const tx = await contract.storeImage(imageUrl, imageHash, timestamp, signature);
+      console.log("Transaction submitted:", tx.hash);
+      
       return await tx.wait();
     } catch (err) {
       console.error('Store image error:', err);
@@ -124,4 +133,4 @@ export const useWeb3 = (): UseWeb3Return => {
     signMessage,
     storeImageData
   };
-}; 
+};
