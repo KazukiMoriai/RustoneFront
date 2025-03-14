@@ -1,6 +1,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { useSDK } from '@metamask/sdk-react';
+import { CONTRACT_ADDRESS, CONTRACT_ABI } from '../contracts/ImageSignatureStorage';
 
 interface UseWeb3Return {
   account: string | null;
@@ -9,6 +10,7 @@ interface UseWeb3Return {
   connect: () => Promise<void>;
   disconnect: () => void;
   signMessage: (message: string) => Promise<string>;
+  storeImageData: (imageUrl: string, imageHash: string, timestamp: number, signature: string) => Promise<any>;
 }
 
 export const useWeb3 = (): UseWeb3Return => {
@@ -80,12 +82,46 @@ export const useWeb3 = (): UseWeb3Return => {
     }
   }, [account]);
 
+    // コントラクトとの接続を設定
+    const getContract = useCallback(async () => {
+      if (!account) {
+        throw new Error('ウォレットが接続されていません。');
+      }
+  
+      try {
+        const provider = new ethers.BrowserProvider(window.ethereum);
+        const signer = await provider.getSigner();
+        return new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+      } catch (err) {
+        console.error('Contract connection error:', err);
+        throw new Error('スマートコントラクトへの接続に失敗しました。');
+      }
+    }, [account]);
+
+     // 画像データを保存する関数
+  const storeImageData = useCallback(async (
+    imageUrl: string,
+    imageHash: string,
+    timestamp: number,
+    signature: string
+  ) => {
+    try {
+      const contract = await getContract();
+      const tx = await contract.storeImage(imageUrl, imageHash, timestamp, signature);
+      return await tx.wait();
+    } catch (err) {
+      console.error('Store image error:', err);
+      throw new Error('画像データの保存に失敗しました。');
+    }
+  }, [getContract]);
+
   return {
     account,
     isConnecting,
     error,
     connect,
     disconnect,
-    signMessage
+    signMessage,
+    storeImageData
   };
 }; 
