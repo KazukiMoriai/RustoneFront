@@ -1,12 +1,66 @@
-# React + Vite
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+# ファイル構成
 
-Currently, two official plugins are available:
+---
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react/README.md) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+## コンポーネント
 
-## Expanding the ESLint configuration
+### **src/components/Camera.tsx**
 
-If you are developing a production application, we recommend using TypeScript and enable type-aware lint rules. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+アプリケーションのメインコンポーネントで、以下の機能を提供しています：
+- ウェブカメラからの画像キャプチャ
+- MetaMask ウォレットとの接続
+- 撮影した画像への電子署名の付与
+- 署名付き画像のアップロード
+
+---
+
+## カスタムフック (1/2)
+
+### **src/hooks/usePhotoCapture.ts**
+
+画像のキャプチャと保存に関するロジックをカプセル化したカスタムフックで、以下の機能を提供しています：
+- 画像のキャプチャと一時保存
+- 画像の再撮影
+- 署名付き画像のアップロード
+
+---
+
+## カスタムフック (2/2)
+
+### **src/hooks/useWeb3.ts**
+
+Web3 と MetaMask の相互作用を管理するカスタムフックで、以下の機能を提供しています：
+- MetaMask ウォレットへの接続と切断
+- メッセージの署名
+- スマートコントラクトとの相互作用
+
+---
+
+## サービス
+
+### **src/services/photoService.ts**
+
+画像操作とサーバー通信を担当するサービスで、以下の機能を提供しています：
+- 画像のローカル保存
+- 署名付き画像のサーバーへのアップロード
+- 画像の取得と削除
+
+---
+
+## スマートコントラクト関連
+
+### **src/contracts/ImageSignatureStorage.js**
+
+イーサリアム上のスマートコントラクトとやり取りするための ABI（Application Binary Interface）とアドレスを定義しています。
+このコントラクトは、画像の署名と検証を処理します。
+
+---
+
+## ユーティリティ
+
+### **src/utils/crypto.ts**
+
+暗号関連のユーティリティ関数を提供しています：
+- 画像データのハッシュ化
+- 署名メッセージの作成
